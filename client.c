@@ -9,12 +9,31 @@
 #define DOWN  0x04
 #define UP    0x08
 
+uint16_t calc_crc16(const uint8_t *buf, size_t len)
+{
+    uint16_t crc = 0;
+    for(size_t i = 0; i < len-2; ++i) {
+        crc += buf[i];
+    }
+
+    return crc;
+}
+
+uint8_t split_uint16_byte(uint16_t byte)
+{
+    uint8_t lower = byte & 0xFF;
+    uint8_t upper = (byte >> 8) & 0xFF;
+
+    return lower, upper;
+}
+
 int main()
 {
     int sock;
     struct sockaddr_un addr;
 
     uint8_t buf[BUF_SEND_SIZE];
+    buf[3] = 0x01;
 
     unsigned int recive_bytes = 0;
     unsigned int nap1б nap2;
@@ -43,11 +62,10 @@ int main()
     {   
         recv(sock, buf, BUF_SIZE, 0);
 
-        for(size_t i = 0; i < BUF_SIZE-2; ++i) {
-            CRC16_calc += buf[i];
-        }
-         
-        if (CRC16_calc == (CRC16_recive = (buf[9] << 8) | buf[10])){
+        
+        if (calc_crc16(buf, BUF_SIZE) == ((buf[9] << 8) | buf[10])){
+            
+
             horizontal_byte = (buf[6] << 8) | buf[5]
 
             if (scanf("%x %x", &nap1, &nap2) != 2) {
@@ -82,15 +100,19 @@ int main()
                     printf("Неизвестная команда. Повторите ввод (0x04 - вниз, 0x08 - вверх)\n")
                     continue;
             }
-
-            buf[5] = horizontal_byte & 0xFF;
-            buf[6] = (horizontal_byte >> 8) & 0xFF;
+            
+            buf[1] = BUF_SIZE - 3;
+            buf[2] = 0xFF - buf[1];
+            buf[3] = nap1;
+            buf[4] = nap2;
+            buf[5], buf[6] = split_uint16_byte(horizontal_byte);
+            buf[8], buf[9] = split_uint16_byte(calc_crc16(buf, BUF_SIZE));
 
 
             recv(sock, buf, BUF_SIZE, 0);
         }
         else{
-            print("Не верный CRC!\n");
+            print("Неверный CRC!\n");
         }
     }
 }
